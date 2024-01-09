@@ -3,8 +3,9 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const mongoose = require("mongoose");
-const md5 = require("md5");
 const port = 3000;
+const bcrypt = require("bcrypt");
+const saltRounds = 10;
 
 const app = express();
 
@@ -36,26 +37,36 @@ app.get("/register", function (req, res) {
 
 app.post("/register", async function (req, res) {
   try {
-    const newUser = new User({
-      email: req.body.username,
-      password: md5(req.body.password),
+    bcrypt.hash(req.body.password, saltRounds, async function (err, hash) {
+      if (err) {
+        console.log(err);
+        res.status(500).send("Internal Server Error");
+        return;
+      }
+      const newUser = new User({
+        email: req.body.username,
+        password: hash,
+      });
+      await newUser.save();
+      res.render("secrets");
     });
-    await newUser.save();
-    res.render("secrets");
   } catch (err) {
     console.log(err);
     res.status(500).send("Internal Server Error");
   }
 });
+
 app.post("/login", (req, res) => {
   const username = req.body.username;
-  const password = md5(req.body.password);
+  const password = req.body.password;
 
   User.findOne({ email: username })
     .then((foundUser) => {
-      if (foundUser && foundUser.password === password) {
-        res.render("secrets");
-      }
+      bcrypt.compare(password, foundUser.password, function (err, result) {
+        if (result == true) {
+          res.render("secrets");
+        }
+      });
     })
     .catch((err) => {
       console.log(err);
