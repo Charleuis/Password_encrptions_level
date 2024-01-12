@@ -37,6 +37,7 @@ const userSchema = new mongoose.Schema({
   email: String,
   password: String,
   googleId: String,
+  secret: String,
 });
 
 userSchema.plugin(passportLocalMongoose);
@@ -101,11 +102,39 @@ app.get("/register", function (req, res) {
   res.render("register");
 });
 
-app.get("/secrets", function (req, res) {
+app.get("/secrets", async function (req, res) {
+  try {
+    const foundSecrets = await User.find({ secret: { $ne: null } }).exec();
+    if (foundSecrets) {
+      res.render("secrets", { usersWithSecrets: foundSecrets });
+    }
+  } catch (err) {
+    console.log(err);
+    res.status(500).send("Internal Sever Error");
+  }
+});
+
+app.get("/submit", function (req, res) {
   if (req.isAuthenticated()) {
-    res.render("secrets");
+    res.render("submit");
   } else {
     res.redirect("/login");
+  }
+});
+
+app.post("/submit", async function (req, res) {
+  const submitSecret = req.body.secret;
+  try {
+    const foundUser = await User.findById(req.user.id).exec();
+
+    if (foundUser) {
+      foundUser.secret = submitSecret;
+      await foundUser.save();
+      res.redirect("/secrets");
+    }
+  } catch (error) {
+    console.log(err);
+    res.status(500).send("Internal Server Error");
   }
 });
 
@@ -126,7 +155,9 @@ app.post("/register", async function (req, res) {
   );
 });
 
-app.post("/login", (req, res) => {});
+app.post("/login", (req, res) => {
+    
+});
 
 app.listen(port, () => {
   console.log(`server Started on server ${port}`);
